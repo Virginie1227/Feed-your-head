@@ -60,6 +60,8 @@ Dans le service → onglet **Variables** :
 >
 > **Cible recommandée — authentifier le domaine.** Le TXT `brevo-code:…` est déjà posé sur `feedyourhead.fr` (propriété prouvée), mais les enregistrements **DKIM manquent**, donc le domaine n'est pas authentifié et aucune adresse `@feedyourhead.fr` n'est utilisable comme expéditeur. Pour finir : Brevo → *Expéditeurs, domaines et IP* → *Domaines* → `feedyourhead.fr` → *Authentifier* → copier les enregistrements DKIM (et le DMARC proposé) dans la zone DNS IONOS. Une fois le domaine vert, ajouter `virginie@feedyourhead.fr` comme expéditeur et remettre `CONTACT_FROM` dessus.
 >
+> **Restriction IP : à laisser désactivée.** Brevo peut n'autoriser les appels API que depuis une liste d'IP (*SMTP et API* → bandeau « Les adresses IP non autorisées sont bloquées »). Railway n'a pas d'IP sortante fixe — elle change d'un déploiement à l'autre — donc une allowlist bloque le formulaire et finit par faire désactiver la clé par Brevo. Laisser cette restriction inactive, ou passer par une IP sortante statique (option payante Railway).
+>
 > **Dépannage.** `GET /api/contact/diagnostic` (connecté au back office) dit si la clé est valide, s'il reste des crédits et quels expéditeurs Brevo considère comme vérifiés. En cas d'échec, le formulaire renvoie aussi un champ `reason` : `sender_not_validated`, `api_key_rejected`, `quota_exceeded`, `account_blocked` ou `timeout`.
 
 Cliquer **Deploy** → le service redémarre, le bootstrap :
