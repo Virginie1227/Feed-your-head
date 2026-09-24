@@ -49,14 +49,18 @@ Dans le service → onglet **Variables** :
 | `ADMIN_NAME` | nom complet |
 | `PUBLIC_ORIGIN` | `https://feedyourhead.fr` |
 | `BREVO_API_KEY` | clé API Brevo (Brevo → *SMTP & API* → *API keys*) |
-| `CONTACT_FROM` | `virginie@feedyourhead.fr` (expéditeur, à authentifier dans Brevo) |
+| `CONTACT_FROM` | **doit être une adresse vérifiée dans Brevo** (voir ci-dessous) — sinon Brevo rejette l'envoi et `/api/contact` répond 502 |
 | `CONTACT_TO` | *(optionnel)* destinataire — défaut = `CONTACT_FROM` |
 
 **Ne pas définir `PORT`** — Railway l'injecte automatiquement, `getPort()` le récupère.
 
 > Le formulaire de contact envoie via l'**API Brevo** en HTTPS (`server/src/routes/contact.js`) — Railway bloque le SMTP sortant, donc pas de SMTP IONOS direct. Sans `BREVO_API_KEY`, l'endpoint `/api/contact` répond `email_not_configured`.
 >
-> **Mise en place Brevo (une fois) :** créer un compte gratuit sur brevo.com → authentifier l'expéditeur : soit vérifier l'adresse `virginie@feedyourhead.fr` (un clic sur le lien reçu dans sa boîte — rapide), soit authentifier le domaine `feedyourhead.fr` en ajoutant les enregistrements DKIM fournis par Brevo (meilleure délivrabilité). Puis générer une clé API et la mettre dans `BREVO_API_KEY`.
+> **L'expéditeur est le point sensible.** Brevo refuse tout envoi dont le `sender` n'est pas une adresse vérifiée chez lui (*Expéditeurs, domaines et IP*). `CONTACT_FROM` doit donc reprendre **exactement** une adresse marquée « Vérifié » dans cette page. Le destinataire (`CONTACT_TO`), lui, n'a aucune vérification à passer : il peut rester `virginie@feedyourhead.fr`.
+>
+> **Cible recommandée — authentifier le domaine.** Le TXT `brevo-code:…` est déjà posé sur `feedyourhead.fr` (propriété prouvée), mais les enregistrements **DKIM manquent**, donc le domaine n'est pas authentifié et aucune adresse `@feedyourhead.fr` n'est utilisable comme expéditeur. Pour finir : Brevo → *Expéditeurs, domaines et IP* → *Domaines* → `feedyourhead.fr` → *Authentifier* → copier les enregistrements DKIM (et le DMARC proposé) dans la zone DNS IONOS. Une fois le domaine vert, ajouter `virginie@feedyourhead.fr` comme expéditeur et remettre `CONTACT_FROM` dessus.
+>
+> **Dépannage.** `GET /api/contact/diagnostic` (connecté au back office) dit si la clé est valide, s'il reste des crédits et quels expéditeurs Brevo considère comme vérifiés. En cas d'échec, le formulaire renvoie aussi un champ `reason` : `sender_not_validated`, `api_key_rejected`, `quota_exceeded`, `account_blocked` ou `timeout`.
 
 Cliquer **Deploy** → le service redémarre, le bootstrap :
 1. crée `/data/feedyourhead.sqlite`
