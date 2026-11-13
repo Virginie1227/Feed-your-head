@@ -24,7 +24,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { api } from '../api.js';
+import { api, humanizeError } from '../api.js';
 import AdminShell from '../components/AdminShell.jsx';
 import { SECTION_EDITORS, SECTION_LABELS } from '../editors/SectionEditors.jsx';
 import { SETTINGS_EDITORS, SETTINGS_LABELS } from '../editors/SettingsEditors.jsx';
@@ -43,10 +43,13 @@ export default function ContentEditor() {
 
   const reload = async () => {
     setLoading(true);
-    const c = await api.content();
-    setContent(c);
-    setLoading(false);
-    return c;
+    try {
+      const c = await api.content();
+      setContent(c);
+      return c;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const deriveDraft = (next, c) => {
@@ -74,18 +77,24 @@ export default function ContentEditor() {
         setDraft(deriveDraft(initial, c));
         setDirty(false);
       }
-    });
+    }).catch((err) => flash('error', humanizeError(err, 'Impossible de charger le contenu.')));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // When content is reloaded (after save/reorder/etc.), re-derive draft from fresh content.
+  // NB: content is reloaded after toggle/reorder/add/delete. We deliberately do
+  // NOT re-derive the draft then, otherwise unsaved edits in the open editor
+  // would be silently wiped. Only save() and switchTo() replace the draft.
+
+  // Warn before leaving the page (tab close, reload, navigation) with unsaved edits.
   useEffect(() => {
-    if (!content || !selection) return;
-    setDraft(deriveDraft(selection, content));
-    setDirty(false);
-    // Only react to content updates, not selection (switchTo handles that).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content]);
+    if (!dirty) return undefined;
+    const onBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [dirty]);
 
   const flash = (kind, message) => {
     setToast({ kind, message });
@@ -101,11 +110,12 @@ export default function ContentEditor() {
       } else {
         await api.updateSettings(selection.id, draft);
       }
-      await reload();
+      const c = await reload();
+      setDraft(deriveDraft(selection, c));
       setDirty(false);
       flash('success', 'Modifications enregistrées.');
     } catch (err) {
-      flash('error', err.message || 'Erreur lors de l’enregistrement.');
+      flash('error', humanizeError(err, 'Erreur lors de l’enregistrement.'));
     } finally {
       setSaving(false);
     }
@@ -130,7 +140,7 @@ export default function ContentEditor() {
       await api.reorderSections(newIds);
       flash('success', 'Ordre mis à jour.');
     } catch (err) {
-      flash('error', 'Erreur lors du réordonnancement.');
+      flash('error', humanizeError(err, 'Erreur lors du réordonnancement.'));
       await reload();
     }
   };
@@ -140,7 +150,7 @@ export default function ContentEditor() {
       await api.updateSection(section.id, { visible: !section.visible });
       await reload();
     } catch (err) {
-      flash('error', err.message || 'Erreur.');
+      flash('error', humanizeError(err));
     }
   };
 
@@ -152,7 +162,7 @@ export default function ContentEditor() {
       setAddModalOpen(false);
       flash('success', `Section « ${SECTION_LABELS[type]} » ajoutée.`);
     } catch (err) {
-      flash('error', err.message || 'Erreur.');
+      flash('error', humanizeError(err));
     }
   };
 
@@ -167,7 +177,7 @@ export default function ContentEditor() {
       }
       flash('success', 'Section supprimée.');
     } catch (err) {
-      flash('error', err.message || 'Erreur.');
+      flash('error', humanizeError(err));
     }
   };
 
@@ -222,7 +232,7 @@ export default function ContentEditor() {
             <h3 className="text-xs uppercase tracking-widest text-ochre font-medium">Sections</h3>
             <button
               type="button"
-              onClick={() => setAddModalOpen(true)}
+              onClick={() => maybeSwitch(dirty, () => setAddModalOpen(true))}
               className="inline-flex items-center gap-1 text-xs text-forest hover:text-ochre"
             >
               <Plus size={12} /> Ajouter

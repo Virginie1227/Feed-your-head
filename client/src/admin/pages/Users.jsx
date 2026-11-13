@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, Trash2, X, CheckCircle, AlertCircle } from 'lucide-react';
-import { api } from '../api.js';
+import { api, humanizeError } from '../api.js';
 import { useAuth } from '../AuthContext.jsx';
 import AdminShell from '../components/AdminShell.jsx';
 
@@ -139,7 +139,7 @@ function errorMessage(err) {
   if (err?.body?.error === 'cannot_delete_self') return 'Vous ne pouvez pas supprimer votre propre compte.';
   if (err?.body?.error === 'last_admin') return 'Impossible de supprimer le dernier administrateur.';
   if (err?.body?.error === 'invalid_input') return 'Champs invalides (mot de passe ≥ 8 caractères, email valide).';
-  return err.message || 'Erreur.';
+  return humanizeError(err);
 }
 
 function UserFormModal({ title, initial = {}, onClose, onSubmit, requirePassword = false }) {

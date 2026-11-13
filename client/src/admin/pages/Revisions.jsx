@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { RotateCcw, Eye, CheckCircle, AlertCircle, X } from 'lucide-react';
-import { api } from '../api.js';
+import { api, humanizeError } from '../api.js';
 import AdminShell from '../components/AdminShell.jsx';
 import { SECTION_LABELS } from '../editors/SectionEditors.jsx';
 import { SETTINGS_LABELS } from '../editors/SettingsEditors.jsx';
@@ -31,7 +31,7 @@ export default function Revisions() {
       await reload();
       flash('success', 'Révision restaurée.');
     } catch (err) {
-      flash('error', err.message || 'Erreur.');
+      flash('error', humanizeError(err));
     }
   };
 
@@ -120,7 +120,10 @@ function labelFor(rev) {
 
 function formatDate(iso) {
   if (!iso) return '';
-  const d = new Date(iso);
+  // SQLite stores CURRENT_TIMESTAMP in UTC as "YYYY-MM-DD HH:MM:SS" (no zone):
+  // mark it as UTC so it's shown in the editor's local time (Paris).
+  const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?$/.test(iso) ? `${iso.replace(' ', 'T')}Z` : iso;
+  const d = new Date(normalized);
   return d.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
 }
 

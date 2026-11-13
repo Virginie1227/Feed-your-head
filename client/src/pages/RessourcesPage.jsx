@@ -8,7 +8,8 @@ export default function RessourcesPage() {
   const sections = useSections();
   const settings = useSettings();
   const brand = settings?.brand?.name ?? 'Feed Your Head';
-  const section = sections.find((s) => s.type === 'ressources');
+  // Hiding the section in the back office (eye icon) must hide the page content too.
+  const section = sections.find((s) => s.type === 'ressources' && s.visible);
 
   useEffect(() => {
     document.title = `Ressources · ${brand}`;

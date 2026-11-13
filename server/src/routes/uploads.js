@@ -31,23 +31,39 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_BYTES },
   fileFilter: (_req, file, cb) => {
-    if (ACCEPTED_MIME.has(file.mimetype)) cb(null, true);
-    else cb(new Error('unsupported_mime'));
+    if (ACCEPTED_MIME.has(file.mimetype)) return cb(null, true);
+    const isHeic = /heic|heif/i.test(file.mimetype) || /\.(heic|heif)$/i.test(file.originalname);
+    cb(new Error(isHeic ? 'unsupported_heic' : 'unsupported_mime'));
   },
 });
 
 const router = Router();
 
+// Where is each upload URL referenced in the site content? Returns a list of
+// human-readable places (section type / settings key) per URL.
+async function findUsages() {
+  const [sections, settings] = await Promise.all([
+    db('sections').select('type', 'data_json'),
+    db('settings').select('key', 'value_json'),
+  ]);
+  const sources = [
+    ...sections.map((s) => ({ place: `section:${s.type}`, text: s.data_json })),
+    ...settings.map((s) => ({ place: `settings:${s.key}`, text: s.value_json })),
+  ];
+  return (url) => [...new Set(sources.filter((s) => s.text.includes(url)).map((s) => s.place))];
+}
+
 router.get('/', requireAuth, async (_req, res) => {
   const rows = await db('uploads').select('*').orderBy('uploaded_at', 'desc');
-  res.json({ items: rows });
+  const usagesOf = await findUsages();
+  res.json({ items: rows.map((r) => ({ ...r, used_in: usagesOf(r.url) })) });
 });
 
 router.post('/', requireAuth, (req, res, next) => {
   upload.single('file')(req, res, (err) => {
     if (err) {
-      const msg = err.message || 'upload_failed';
-      return res.status(400).json({ error: msg });
+      const code = err.code === 'LIMIT_FILE_SIZE' ? 'file_too_large' : err.message || 'upload_failed';
+      return res.status(400).json({ error: code });
     }
     next();
   });
@@ -71,11 +87,17 @@ router.post('/', requireAuth, (req, res, next) => {
     finalSize = size;
   } else {
     // Raster: resize to max 2000px, convert to WebP q80.
-    const processed = await sharp(buffer)
-      .rotate() // honor EXIF orientation
-      .resize({ width: 2000, height: 2000, fit: 'inside', withoutEnlargement: true })
-      .webp({ quality: 80 })
-      .toBuffer();
+    let processed;
+    try {
+      processed = await sharp(buffer)
+        .rotate() // honor EXIF orientation
+        .resize({ width: 2000, height: 2000, fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 80 })
+        .toBuffer();
+    } catch (err) {
+      console.warn('[uploads] unreadable image', originalname, err.message);
+      return res.status(400).json({ error: 'invalid_image' });
+    }
     filename = `${id}-${safeBase}.webp`;
     finalMime = 'image/webp';
     finalBuffer = processed;
@@ -117,6 +139,12 @@ router.delete('/:id', requireAuth, async (req, res) => {
   if (!Number.isFinite(id)) return res.status(400).json({ error: 'invalid_id' });
   const row = await db('uploads').where({ id }).first();
   if (!row) return res.status(404).json({ error: 'not_found' });
+
+  // Refuse to delete an image still displayed on the site (unless forced).
+  const usedIn = (await findUsages())(row.url);
+  if (usedIn.length > 0 && req.query.force !== '1') {
+    return res.status(409).json({ error: 'upload_in_use', used_in: usedIn });
+  }
 
   const filePath = path.join(UPLOADS_DIR, row.filename);
   await fs.unlink(filePath).catch(() => {}); // ignore if already missing

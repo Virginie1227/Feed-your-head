@@ -237,7 +237,7 @@ export const SITE_CONFIG = {
     editorStatus: 'consultante RH indépendante',
     siret: '990 850 125 00016',
     address: '',
-    hostName: 'IONOS SARL',
-    hostAddress: '7 place de la Gare, 57200 Sarreguemines, France',
+    hostName: 'Railway Corporation',
+    hostAddress: '548 Market St Suite 68956, San Francisco, CA 94104, États-Unis',
   },
 };

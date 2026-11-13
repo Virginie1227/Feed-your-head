@@ -15,8 +15,9 @@ export default function LegalPage() {
   const editorStatus = legal.editorStatus || 'consultante RH indépendante';
   const siret = legal.siret || '990 850 125 00016';
   const address = legal.address || '';
-  const hostName = legal.hostName || 'IONOS SARL';
-  const hostAddress = legal.hostAddress || '7 place de la Gare, 57200 Sarreguemines, France';
+  // The site runs on Railway (IONOS only manages the domain name / DNS).
+  const hostName = legal.hostName || 'Railway Corporation';
+  const hostAddress = legal.hostAddress || '548 Market St Suite 68956, San Francisco, CA 94104, États-Unis';
 
   return (
     <div className="min-h-screen bg-cream text-ink">

@@ -10,8 +10,6 @@ function BrandEditor({ value, onChange }) {
     <Section title="Identité de marque">
       <TextField label="Nom de marque" value={value.name} onChange={(v) => onChange(set(value, 'name', v))} />
       <TextField label="Baseline (kicker du Hero)" value={value.baseline} onChange={(v) => onChange(set(value, 'baseline', v))} />
-      <TextField label="Nom de la consultante" value={value.consultantName} onChange={(v) => onChange(set(value, 'consultantName', v))} />
-      <TextField label="Fonction" value={value.consultantRole} onChange={(v) => onChange(set(value, 'consultantRole', v))} />
     </Section>
   );
 }
@@ -103,8 +101,8 @@ function LegalEditor({ value, onChange }) {
         <TextField label="Adresse postale (optionnel)" value={v.address} onChange={(x) => onChange(set(v, 'address', x))} placeholder="laisser vide pour « à compléter »" />
       </Section>
       <Section title="Hébergement">
-        <TextField label="Nom de l'hébergeur" value={v.hostName} onChange={(x) => onChange(set(v, 'hostName', x))} placeholder="IONOS SARL" />
-        <TextField label="Adresse de l'hébergeur" value={v.hostAddress} onChange={(x) => onChange(set(v, 'hostAddress', x))} placeholder="7 place de la Gare, 57200 Sarreguemines, France" />
+        <TextField label="Nom de l'hébergeur" value={v.hostName} onChange={(x) => onChange(set(v, 'hostName', x))} placeholder="Railway Corporation" />
+        <TextField label="Adresse de l'hébergeur" value={v.hostAddress} onChange={(x) => onChange(set(v, 'hostAddress', x))} placeholder="548 Market St Suite 68956, San Francisco, CA 94104, États-Unis" />
       </Section>
     </>
   );
@@ -120,7 +118,7 @@ export const SETTINGS_EDITORS = {
 };
 
 export const SETTINGS_LABELS = {
-  brand: 'Marque & consultante',
+  brand: 'Marque',
   intro: 'Intro animée',
   contact: 'Coordonnées',
   nav: 'Menu de navigation',

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Upload, X, Image as ImageIcon, Trash2 } from 'lucide-react';
-import { api } from '../api.js';
+import { ACCEPTED_TYPES, useMediaLibrary } from './useMediaLibrary.js';
 
 /**
  * Modal media picker.
@@ -8,54 +8,7 @@ import { api } from '../api.js';
  * onClose() — dismiss without selecting.
  */
 export function MediaPickerModal({ onSelect, onClose }) {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState(null);
-
-  const reload = useCallback(async () => {
-    setLoading(true);
-    const res = await api.listUploads();
-    setItems(res.items);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    reload();
-  }, [reload]);
-
-  const handleFiles = async (files) => {
-    setError(null);
-    setUploading(true);
-    try {
-      for (const file of files) {
-        await api.uploadFile(file);
-      }
-      await reload();
-    } catch (err) {
-      setError(err.message || 'Erreur d’upload');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const onInputChange = (e) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length) handleFiles(files);
-    e.target.value = '';
-  };
-
-  const onDrop = (e) => {
-    e.preventDefault();
-    const files = Array.from(e.dataTransfer.files || []);
-    if (files.length) handleFiles(files);
-  };
-
-  const removeItem = async (id) => {
-    if (!window.confirm('Supprimer définitivement cette image ?')) return;
-    await api.deleteUpload(id);
-    await reload();
-  };
+  const { items, loading, uploading, error, removeItem, onInputChange, onDrop } = useMediaLibrary();
 
   return (
     <div className="fixed inset-0 z-50 bg-ink/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
@@ -83,7 +36,7 @@ export function MediaPickerModal({ onSelect, onClose }) {
             <p className="text-xs text-mute mt-1">JPEG, PNG, WebP, GIF, SVG — max 10 Mo. Les images raster sont converties en WebP automatiquement.</p>
             <input
               type="file"
-              accept="image/*"
+              accept={ACCEPTED_TYPES}
               multiple
               hidden
               onChange={onInputChange}
@@ -92,7 +45,7 @@ export function MediaPickerModal({ onSelect, onClose }) {
           </label>
 
           {error && (
-            <p className="mb-4 text-sm text-ochre bg-ochre/10 border border-ochre/30 rounded-xl px-4 py-3">
+            <p className="mb-4 whitespace-pre-line text-sm text-ochre bg-ochre/10 border border-ochre/30 rounded-xl px-4 py-3">
               {error}
             </p>
           )}
@@ -111,7 +64,7 @@ export function MediaPickerModal({ onSelect, onClose }) {
                   key={item.id}
                   item={item}
                   onPick={() => onSelect(item.url)}
-                  onRemove={() => removeItem(item.id)}
+                  onRemove={() => removeItem(item)}
                 />
               ))}
             </div>
@@ -158,6 +111,9 @@ function MediaCard({ item, onPick, onRemove }) {
  */
 export function ImagePicker({ value, onChange, label = "Image" }) {
   const [open, setOpen] = useState(false);
+  // URL whose preview failed to load (file deleted or never uploaded).
+  const [brokenUrl, setBrokenUrl] = useState(null);
+  const broken = Boolean(value) && brokenUrl === value;
 
   return (
     <div>
@@ -165,7 +121,7 @@ export function ImagePicker({ value, onChange, label = "Image" }) {
       <div className="flex items-start gap-3">
         <div className="w-20 h-20 rounded-xl border border-cream-dark bg-cream/40 overflow-hidden flex-shrink-0">
           {value ? (
-            <img src={value} alt="" className="w-full h-full object-cover" />
+            <img src={value} alt="" className="w-full h-full object-cover" onError={() => setBrokenUrl(value)} />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-mute/40">
               <ImageIcon size={20} />
@@ -177,6 +133,7 @@ export function ImagePicker({ value, onChange, label = "Image" }) {
             type="text"
             value={value || ''}
             onChange={(e) => onChange(e.target.value || undefined)}
+            aria-invalid={broken || undefined}
             placeholder="/uploads/… ou /portrait.jpg"
             className="w-full rounded-xl border border-cream-dark bg-cream/40 px-3 py-2 text-sm text-ink focus:bg-white focus:border-ochre/60"
           />
@@ -198,6 +155,11 @@ export function ImagePicker({ value, onChange, label = "Image" }) {
               </button>
             )}
           </div>
+          {broken && (
+            <p className="text-xs text-ochre">
+              ⚠ Image introuvable sur le serveur : elle apparaît cassée sur le site. Choisissez ou renvoyez une image.
+            </p>
+          )}
         </div>
       </div>
       {open && (

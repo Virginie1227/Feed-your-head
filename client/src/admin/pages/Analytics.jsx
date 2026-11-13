@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Eye, Users, BarChart3 } from 'lucide-react';
-import { api } from '../api.js';
+import { api, humanizeError } from '../api.js';
 import AdminShell from '../components/AdminShell.jsx';
 
 const RANGES = [
@@ -43,7 +43,7 @@ export default function Analytics() {
     api
       .analyticsStats(range)
       .then((s) => !cancelled && (setStats(s), setError(null)))
-      .catch((e) => !cancelled && setError(e.message || 'Erreur'))
+      .catch((e) => !cancelled && setError(humanizeError(e, 'Impossible de charger les statistiques.')))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;

@@ -16,6 +16,12 @@ import analyticsRouter from './routes/analytics.js';
 import contactRouter from './routes/contact.js';
 import { getPort, isProd } from './lib/config.js';
 import { bootstrap } from './db/bootstrap.js';
+import { catchAsync } from './lib/catchAsync.js';
+
+// Last-resort safety net: log instead of crashing the whole site.
+process.on('unhandledRejection', (err) => {
+  console.error('[unhandledRejection]', err);
+});
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const clientDist = path.resolve(__dirname, '../../client/dist');
@@ -47,20 +53,22 @@ app.use(
 );
 
 app.use(compression());
-app.use(express.json({ limit: '256kb' }));
+app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
 
-app.use('/api/auth', authRouter);
-app.use('/api/content', contentRouter);
-app.use('/api/sections', sectionsRouter);
-app.use('/api/settings', settingsRouter);
-app.use('/api/uploads', uploadsRouter);
-app.use('/api/users', usersRouter);
-app.use('/api/revisions', revisionsRouter);
-app.use('/api/analytics', analyticsRouter);
-app.use('/api/contact', contactRouter);
+app.use('/api/auth', catchAsync(authRouter));
+app.use('/api/content', catchAsync(contentRouter));
+app.use('/api/sections', catchAsync(sectionsRouter));
+app.use('/api/settings', catchAsync(settingsRouter));
+app.use('/api/uploads', catchAsync(uploadsRouter));
+app.use('/api/users', catchAsync(usersRouter));
+app.use('/api/revisions', catchAsync(revisionsRouter));
+app.use('/api/analytics', catchAsync(analyticsRouter));
+app.use('/api/contact', catchAsync(contactRouter));
 
 app.use('/uploads', express.static(UPLOADS_DIR, { maxAge: '7d' }));
+// A missing upload must be a real 404, not the SPA's index.html.
+app.use('/uploads', (_req, res) => res.status(404).end());
 
 // In production, serve the built client.
 if (isProd()) {
@@ -71,7 +79,11 @@ if (isProd()) {
 }
 
 app.use((err, _req, res, _next) => {
+  // body-parser errors carry a 4xx status (413 too large, 400 malformed JSON).
+  if (err.type === 'entity.too.large') return res.status(413).json({ error: 'payload_too_large' });
+  if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'invalid_json' });
   console.error('[server error]', err);
+  if (res.headersSent) return;
   res.status(500).json({ error: 'internal_error' });
 });
 

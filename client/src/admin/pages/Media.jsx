@@ -1,58 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Upload, Trash2, Image as ImageIcon, Copy } from 'lucide-react';
-import { api } from '../api.js';
+import { ACCEPTED_TYPES, placeLabel, useMediaLibrary } from '../components/useMediaLibrary.js';
 import AdminShell from '../components/AdminShell.jsx';
 
 export default function Media() {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState(null);
+  const { items, loading, uploading, error, removeItem, onInputChange, onDrop } = useMediaLibrary();
   const [copied, setCopied] = useState(null);
-
-  const reload = useCallback(async () => {
-    setLoading(true);
-    const res = await api.listUploads();
-    setItems(res.items);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    reload();
-  }, [reload]);
-
-  const handleFiles = async (files) => {
-    setError(null);
-    setUploading(true);
-    try {
-      for (const file of files) {
-        await api.uploadFile(file);
-      }
-      await reload();
-    } catch (err) {
-      setError(err.message || 'Erreur d’upload');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const onInputChange = (e) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length) handleFiles(files);
-    e.target.value = '';
-  };
-
-  const onDrop = (e) => {
-    e.preventDefault();
-    const files = Array.from(e.dataTransfer.files || []);
-    if (files.length) handleFiles(files);
-  };
-
-  const removeItem = async (id) => {
-    if (!window.confirm('Supprimer définitivement cette image ?')) return;
-    await api.deleteUpload(id);
-    await reload();
-  };
 
   const copyUrl = async (url) => {
     try {
@@ -77,11 +30,11 @@ export default function Media() {
           <p className="text-xs text-mute mt-1">
             JPEG, PNG, WebP, GIF, SVG · max 10 Mo · raster auto-converti en WebP, max 2000 px
           </p>
-          <input type="file" accept="image/*" multiple hidden onChange={onInputChange} disabled={uploading} />
+          <input type="file" accept={ACCEPTED_TYPES} multiple hidden onChange={onInputChange} disabled={uploading} />
         </label>
 
         {error && (
-          <p className="mb-4 text-sm text-ochre bg-ochre/10 border border-ochre/30 rounded-xl px-4 py-3">
+          <p className="mb-4 whitespace-pre-line text-sm text-ochre bg-ochre/10 border border-ochre/30 rounded-xl px-4 py-3">
             {error}
           </p>
         )}
@@ -103,6 +56,13 @@ export default function Media() {
                 <div className="p-3 text-xs">
                   <div className="text-ink truncate">{item.alt || item.filename}</div>
                   <div className="text-mute mt-0.5">{Math.round(item.size / 1024)} Ko · {item.mime.split('/')[1]}</div>
+                  {item.used_in?.length > 0 ? (
+                    <div className="mt-1 text-forest" title={item.used_in.map(placeLabel).join(', ')}>
+                      ● Utilisée : {item.used_in.map(placeLabel).join(', ')}
+                    </div>
+                  ) : (
+                    <div className="mt-1 text-mute/70">Non utilisée</div>
+                  )}
                   <button
                     type="button"
                     onClick={() => copyUrl(item.url)}
@@ -114,7 +74,7 @@ export default function Media() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => removeItem(item.id)}
+                  onClick={() => removeItem(item)}
                   aria-label="Supprimer"
                   className="absolute top-2 right-2 bg-white/90 hover:bg-ochre hover:text-white text-mute rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
                 >
