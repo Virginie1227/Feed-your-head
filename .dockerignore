@@ -1,0 +1,11 @@
+.git
+**/node_modules
+client/dist
+server/data
+server/uploads
+.env
+.env.*
+*.log
+.DS_Store
+.vscode
+.idea

@@ -5,16 +5,26 @@ Stack cible : **GitHub → Railway (Node monolithe + volume persistant) → IONO
 ## Vue d'ensemble
 
 ```
-git push main  →  GitHub  →  webhook  →  Railway build (nixpacks)
-                                          • npm ci
+git push main  →  GitHub  →  webhook  →  Railway build (Dockerfile, Node 22.23.5)
+                                          • npm install
                                           • npm run build  (vite → client/dist)
-                                          • npm start      (bootstrap → migrate → seed if empty → listen)
+                                          • node src/index.js (bootstrap → migrate → seed if empty → listen)
                                           • Volume /data   (sqlite + uploads, persistant)
                                               ↓
                             https://feedyourhead.fr  (CNAME IONOS → Railway)
 ```
 
 Tout est automatique : un `git push` re-déploie. Les données (DB + uploads) survivent aux redéploiements grâce au **volume Railway**.
+
+## Version de Node (sécurité)
+
+La version de Node est **figée au patch près** dans le `Dockerfile` (`ARG NODE_VERSION`).
+Après une mise à jour de sécurité Node.js (https://nodejs.org/en/blog/vulnerability) :
+
+1. Mettre à jour `NODE_VERSION` dans le `Dockerfile` (vérifier que le tag `node:<version>-trixie-slim` existe sur Docker Hub)
+2. Pousser → vérifier dans le log de build Railway que la ligne `FROM node:<version>-trixie-slim` porte bien la nouvelle version
+
+⚠️ Garder une image **Debian trixie** (pas bookworm) : le binaire précompilé de `sqlite3` v6 exige glibc ≥ 2.38, bookworm n'a que 2.36 → le serveur ne démarre pas.
 
 ## Pré-requis
 
@@ -26,7 +36,7 @@ Tout est automatique : un `git push` re-déploie. Les données (DB + uploads) su
 
 1. https://railway.app → New Project → **Deploy from GitHub repo**
 2. Sélectionner `feed-your-head`
-3. Railway détecte `nixpacks.toml` et `railway.json` → build automatique
+3. Railway lit `railway.json` (builder `DOCKERFILE`) → build automatique via le `Dockerfile`
 4. **Attendre que le premier build échoue ou démarre** (peu importe) — on configure le volume et les vars ensuite
 
 ## Étape 2 — Volume persistant
